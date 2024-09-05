@@ -47,16 +47,24 @@
 
             <!-- :ref="`form${mainItem.name}`" -->
             <!-- ref="nnnnnnnn" -->
-            <DollForm
+            <!-- <DollForm
               v-if="!isPluginType && mainItem.variables?.properties"
               :ref="`form${mainItem.name}`"
               :data="mainItem.variables"
               :label-width="200"
               :value="mainItem.form"
-              @change="formChange" />
+              @change="formChange" /> -->
               <!-- @focus="handleOperate(arguments, mainItem, 'focus')"
               @blur="handleOperate(arguments, mainItem, 'blur')" -->
-
+              <BKUIFrom
+                v-if="!isPluginType && mainItem.variables?.properties"
+                ref="bkuiFormRef"
+                :label-width="300"
+                v-model="mainItem.form"
+                :schema="mainItem.variables"
+                form-type="vertical"
+              >
+              </BKUIFrom>
             <!-- <bk-form
               v-if="mainItem.data.length"
               :model="mainItem.form"
@@ -253,6 +261,11 @@ import ExceptionCard from '@/components/exception/exception-card.vue';
 import { reguRequired } from '@/common/form-check';
 import { pluginOperate } from '../../operateConfig';
 import bus from '@/common/bus';
+import createForm from '@blueking/bkui-form';
+import '@blueking/bkui-form/dist/bkui-form.css';
+import { transformSchema } from '@/components/RussianDolls/create'
+
+const BKUIFrom = createForm()
 
 interface IVariables {
   title: string
@@ -284,6 +297,7 @@ interface IVariablesItem {
   components: {
     VariablePopover,
     ExceptionCard,
+    BKUIFrom,
   },
 })
 /**
@@ -320,6 +334,7 @@ export default class ParamsConfig extends Vue {
     [key: string]: IVariablesItem[]
   } = {};
   private popoverInstance: any = null;
+  private bkuiFormRef: any = null;
 
   @Ref('popoverRef') private readonly popoverRef!: any;
   @Ref('configContent') private readonly configContent!: any;
@@ -406,7 +421,7 @@ export default class ParamsConfig extends Vue {
     idList = Array.from(new Set(idList));
     if (idList.length) {
       this.loading = true;
-      const list = await PluginStore.getConfigVariables({ config_tpl_ids: idList });
+      let list = await PluginStore.getConfigVariables({ config_tpl_ids: idList });
       this.loading = false;
       list.forEach((item: IVariablesRes) => {
         const itemList = Object.entries(item.variables?.properties || {});
@@ -427,6 +442,13 @@ export default class ParamsConfig extends Vue {
             ...value,
           });
         });
+        const rules = {
+          "required": {
+            validator: "{{ $self.value !== ''}}",
+            message: window.i18n.t ? window.i18n.t('必填项') : '必填项',
+            trigger: 'blur',
+          }
+        }
         this.list.forEach((sysItem: IParamsConfig) => {
           if (sysItem.config_templates && sysItem.config_templates.find((config: any) => item.id === config.id)) {
             const copyForm = Object.assign({}, form);
@@ -461,6 +483,7 @@ export default class ParamsConfig extends Vue {
               });
             }
           }
+          item.variables = transformSchema(item.variables);
         });
       });
     }
@@ -573,35 +596,40 @@ export default class ParamsConfig extends Vue {
 
   // 检查表单
   public async handleValidateForm() {
-    const validateRes: boolean[] = [];
-    bus.$emit('validate', (result: boolean) => {
-      validateRes.push(result);
-    });
-    if(validateRes.some(res => !res)) return true;
+    // const validateRes: boolean[] = [];
+    // bus.$emit('validate', (result: boolean) => {
+    //   validateRes.push(result);
+    // });
+    // if(validateRes.some(res => !res)) return true;
 
-    const checkList: Promise<boolean>[] = [];
-    this.list.forEach((item: IParamsConfig) => {
-      const refs: any = this.$refs[`form${item.name}`];
-      if (refs?.length) {
-        refs.reduce((list: Promise<boolean>[], ref: any) => {
-          list.push(ref.validate());
-          return list;
-        }, checkList);
-      }
-    });
-    return new Promise((resolve) => {
-      Promise.all(checkList)
-        .then(() => {
-          resolve(false);
-        })
-        .catch(() => {
-          // const active = this.list.filter(item =>
-          //   Object.values(item.form).some(value => !value)).map(item => item.name);
-          // this.activeName = Array.from(new Set((active as string[])
-          //   .concat(this.activeName)));
-          resolve(true);
-        });
-    });
+    // const checkList: Promise<boolean>[] = [];
+    // this.list.forEach((item: IParamsConfig) => {
+    //   const refs: any = this.$refs[`form${item.name}`];
+    //   if (refs?.length) {
+    //     refs.reduce((list: Promise<boolean>[], ref: any) => {
+    //       list.push(ref.validate());
+    //       return list;
+    //     }, checkList);
+    //   }
+    // });
+    // return new Promise((resolve) => {
+    //   Promise.all(checkList)
+    //     .then(() => {
+    //       resolve(false);
+    //     })
+    //     .catch(() => {
+    //       // const active = this.list.filter(item =>
+    //       //   Object.values(item.form).some(value => !value)).map(item => item.name);
+    //       // this.activeName = Array.from(new Set((active as string[])
+    //       //   .concat(this.activeName)));
+    //       resolve(true);
+    //     });
+    // });
+    const validRes: boolean[] = [];
+    this.$refs.bkuiFormRef?.forEach((item: any) => {
+      validRes.push(item.validateForm());
+    })
+    return validRes.some(valid => !valid);
   }
 
   // 更新策略的 params 和 configs 属性
