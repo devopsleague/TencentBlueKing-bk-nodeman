@@ -482,8 +482,8 @@ export default class ParamsConfig extends Vue {
                 variables: item.variables || {},
               });
             }
+            sysItem.variables = transformSchema(item.variables);
           }
-          item.variables = transformSchema(item.variables);
         });
       });
     }
